@@ -1,0 +1,7 @@
+# runtime is the bundled Python — source lives in the repo
+runtime/
+__pycache__/
+*.pyc
+morphytrek_data/
+config/
+logs/
