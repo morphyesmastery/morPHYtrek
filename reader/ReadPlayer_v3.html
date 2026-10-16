@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/jpeg" href="MorPHYesLogo.jpg">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MorPHYes Read Player</title>
+<script src="pdf.min.js"></script>
+<script src="mammoth.browser.min.js"></script>
+<script src="jszip.min.js"></script>
+<style>
+  :root{
+    --bg:#0f2340; --panel:#0a1a2e; --border:rgba(255,255,255,.08);
+    --text:#ece6d8; --dim:#8a92a6; --action:#d97834; --action-h:#e88a4a;
+    --good:#4ade80; --alert:#e74c3c; --gold:#c9a227; --fs:64px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-user-select:none; user-select:none;}
+  html,body{height:100%; overflow:hidden;}
+  body{
+    background:radial-gradient(1200px 700px at 50% -10%, #14304f 0%, var(--bg) 60%);
+    color:var(--text);
+    font-family:"Inter","Segoe UI",system-ui,sans-serif;
+    display:flex; flex-direction:column;
+  }
+  /* ---------- top bar ---------- */
+  #topbar{
+    display:flex; align-items:center; gap:10px; padding:10px 16px;
+    border-bottom:1px solid var(--border); background:rgba(10,26,46,.75);
+    backdrop-filter:blur(10px); z-index:5;
+  }
+  #logoImg{height:30px; border-radius:6px; margin-right:2px;}
+  .brand{font-family:"Oswald","Segoe UI",sans-serif; font-weight:600; letter-spacing:1px;
+    font-size:15px; color:var(--text); white-space:nowrap;}
+  .brand b{color:var(--action);}
+  .btn{
+    background:var(--panel); border:1px solid var(--border); color:var(--text);
+    padding:8px 14px; border-radius:10px; cursor:pointer; font-size:13px;
+    transition:.15s; white-space:nowrap; font-family:"Inter",sans-serif;
+  }
+  .btn:hover{border-color:var(--action-h); color:var(--action-h);}
+  .btn.primary{background:var(--action); border-color:var(--action); color:#0f2340; font-weight:600;}
+  .btn.primary:hover{background:var(--action-h); color:#0f2340;}
+  #pathInput{
+    flex:1; min-width:120px; background:var(--panel); border:1px solid var(--border);
+    border-radius:10px; padding:8px 12px; color:var(--text); font-size:13px; outline:none;
+    font-family:"Inter",sans-serif;
+  }
+  #pathInput:focus{border-color:var(--action-h);}
+  #fileName{font-size:12px; color:var(--dim); max-width:220px; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap;}
+  #stats{font-size:12px; color:var(--dim); white-space:nowrap; font-family:"Consolas",monospace;}
+  /* ---------- search bar ---------- */
+  #searchbar{
+    display:flex; align-items:center; gap:8px; padding:8px 16px;
+    border-bottom:1px solid var(--border); background:rgba(10,26,46,.55); z-index:4;
+  }
+  #searchInput{
+    flex:1; min-width:140px; background:var(--panel); border:1px solid var(--border);
+    border-radius:10px; padding:7px 12px; color:var(--text); font-size:13px; outline:none;
+    font-family:"Inter",sans-serif;
+  }
+  #searchInput:focus{border-color:var(--gold);}
+  #searchCount{font-size:12px; color:var(--dim); white-space:nowrap; font-family:"Consolas",monospace;}
+  .sbtn{
+    background:var(--panel); border:1px solid var(--border); color:var(--text);
+    padding:6px 12px; border-radius:8px; cursor:pointer; font-size:12px; transition:.15s;
+  }
+  .sbtn:hover{border-color:var(--gold); color:var(--gold);}
+  /* ---------- main split ---------- */
+  #main{flex:1; display:flex; min-height:0;}
+  /* RSVP stage */
+  #stage{flex:1.2; display:flex; align-items:center; justify-content:center; position:relative; min-width:0;}
+  #focusLines{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;}
+  #focusLines::before, #focusLines::after{
+    content:""; position:absolute; left:50%; width:340px; height:1px;
+    background:linear-gradient(90deg, transparent, var(--border), transparent);
+  }
+  #focusLines::before{transform:translate(-50%,-46px);}
+  #focusLines::after{transform:translate(-50%,46px);}
+  #orpMark{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:2px; height:34px; background:#b8401e; opacity:.55; border-radius:2px; pointer-events:none;}
+  #wordBox{font-family:"Consolas","SF Mono",monospace; font-size:var(--fs); font-weight:600;
+    letter-spacing:.5px; white-space:nowrap; text-shadow:0 4px 30px rgba(0,0,0,.6);}
+  #wordBox .pre,#wordBox .post{color:var(--dim);}
+  #wordBox .orp{color:#b8401e;}   /* RUST — matches the widget's ORP focus letter */
+  #idleMsg{color:var(--dim); font-size:15px; text-align:center; line-height:1.9; max-width:560px;}
+  #idleMsg b{color:var(--text); font-size:22px; letter-spacing:1px; font-family:"Oswald",sans-serif; font-weight:600;}
+  #idleMsg .logo{color:var(--action);}
+  /* ---------- read player panel ---------- */
+  #playerPanel{
+    flex:1; min-width:0; border-left:1px solid var(--border);
+    background:rgba(10,26,46,.45); display:flex; flex-direction:column;
+  }
+  #playerPanel.hidden{display:none;}
+  #playerHead{
+    display:flex; align-items:center; gap:10px; padding:10px 14px;
+    border-bottom:1px solid var(--border); font-size:12px; color:var(--dim);
+    text-transform:uppercase; letter-spacing:1.5px; font-family:"Oswald",sans-serif;
+  }
+  #playerHead .dot{width:8px; height:8px; border-radius:50%; background:var(--good);
+    box-shadow:0 0 10px var(--good); transition:.2s;}
+  #playerHead .dot.idle{background:var(--dim); box-shadow:none;}
+  #playerScroll{
+    flex:1; overflow-y:auto; padding:20px 22px 40vh; scroll-behavior:auto;
+    font-size:15.5px; line-height:2.05; color:var(--dim);
+    font-family:"Inter","Segoe UI",sans-serif;
+  }
+  #playerScroll::-webkit-scrollbar{width:8px;}
+  #playerScroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12); border-radius:99px;}
+  .s-line{margin-bottom:1.1em; border-radius:8px; transition:background .25s;}
+  .s-line.read{color:#5a6172;}
+  .s-line.current{color:#d8d2c4;}
+  .s-line.current .w-read{color:#7e8698;}
+  .s-line .w{transition:color .12s, text-shadow .12s, background .12s; border-radius:3px; padding:0 1px;}
+  .s-line .w-hot{color:#fff; background:rgba(217,120,52,.30); text-shadow:0 0 14px rgba(217,120,52,.7);}
+  .s-line .w-cur{color:var(--action); font-weight:700; background:rgba(217,120,52,.16); text-shadow:0 0 16px rgba(217,120,52,.8);}
+  .s-line .w-hit{background:rgba(201,162,39,.35); color:#ffe9a8; border-radius:3px; padding:0 1px;}
+  .s-line .w-hit.cur-hit{background:var(--gold); color:#0f2340; font-weight:700; box-shadow:0 0 12px rgba(201,162,39,.8);}
+  /* ---------- bottom controls ---------- */
+  #controls{
+    padding:12px 18px 16px; border-top:1px solid var(--border);
+    background:rgba(10,26,46,.75); backdrop-filter:blur(10px); z-index:5;
+  }
+  #progressWrap{height:5px; background:var(--panel); border-radius:99px; cursor:pointer; margin-bottom:12px; border:1px solid var(--border);}
+  #progressBar{height:100%; width:0%; border-radius:99px;
+    background:linear-gradient(90deg, var(--action-h), var(--action)); transition:width .12s linear;}
+  #ctrlRow{display:flex; align-items:center; gap:14px; flex-wrap:wrap; justify-content:center;}
+  .ctl{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--dim);}
+  .ctl output{color:var(--text); font-weight:600; min-width:44px; text-align:center; font-family:"Consolas",monospace;}
+  input[type=range]{width:110px; accent-color:var(--action); cursor:pointer;}
+  .tgl{cursor:pointer; padding:6px 12px; border-radius:99px; border:1px solid var(--border);
+    background:var(--panel); font-size:12px; color:var(--dim); transition:.15s;}
+  .tgl.on{color:#0f2340; background:var(--good); border-color:var(--good); font-weight:700;}
+  #playBtn{width:52px; height:52px; border-radius:50%; font-size:19px; display:flex;
+    align-items:center; justify-content:center; padding:0;}
+  #toast{
+    position:fixed; bottom:110px; left:50%; transform:translateX(-50%);
+    background:#14304f; border:1px solid var(--border); padding:10px 18px; border-radius:12px;
+    font-size:13px; opacity:0; transition:.3s; pointer-events:none; z-index:99; max-width:80%;
+  }
+  #dropVeil{position:fixed; inset:0; background:rgba(15,35,64,.88); z-index:50;
+    display:none; align-items:center; justify-content:center; font-size:22px; color:var(--action-h);
+    border:3px dashed var(--action-h); border-radius:0; font-family:"Oswald",sans-serif; letter-spacing:2px;}
+  #hint{font-size:11px; color:var(--dim); text-align:center; margin-top:8px;}
+  kbd{background:var(--panel); border:1px solid var(--border); border-radius:5px; padding:1px 6px; font-size:10px; font-family:"Consolas",monospace;}
+  @media (max-width:820px){
+    #main{flex-direction:column;}
+    #playerPanel{border-left:none; border-top:1px solid var(--border); flex:1.1;}
+    #stage{flex:1;}
+  }
+</style>
+</head>
+<body>
+
+<div id="dropVeil">DROP IT — MORPHYES READS</div>
+
+<div id="topbar">
+  <img id="logoImg" src="MorPHYesLogo.jpg" alt="MorPHYes">
+  <span class="brand">MorPHYes <b>READ PLAYER</b></span>
+  <button class="btn primary" id="browseBtn">📂 Open File</button>
+  <input type="file" id="fileInput" hidden
+    accept=".txt,.md,.markdown,.log,.csv,.tsv,.json,.xml,.srt,.rtf,.html,.htm,.pdf,.docx,.epub,.pptx,.yml,.yaml,.py,.js,.css">
+  <input id="pathInput" placeholder="…or paste a full file path (C:\docs\book.pdf) and press Enter">
+  <span id="fileName"></span>
+  <span id="stats"></span>
+</div>
+
+<div id="searchbar">
+  <input id="searchInput" placeholder="Search this document — every hit lights up gold, Enter to jump, F3/Shift+F3 to cycle">
+  <span id="searchCount">0 hits</span>
+  <button class="sbtn" id="prevHitBtn" title="Previous hit (Shift+F3)">◀ prev</button>
+  <button class="sbtn" id="nextHitBtn" title="Next hit (F3)">next ▶</button>
+  <button class="sbtn" id="clearHitBtn" title="Clear search">✕</button>
+</div>
+
+<div id="main">
+  <div id="stage">
+    <div id="focusLines"></div>
+    <div id="orpMark" style="display:none"></div>
+    <div id="wordBox"></div>
+    <div id="idleMsg">
+      <b><span class="logo">▶</span> MorPHYes Read Player</b><br>
+      Open or drop any document — PDF, DOCX, EPUB, PPTX, TXT, MD, RTF, HTML, SRT, CSV, JSON…<br><br>
+      Words stream through the focus point while the text below lights up in sync with the voice.<br>
+      Search any keyword — every instance glows gold, cycle through them, play picks up right there.<br>
+      Press <kbd>Space</kbd> to play / pause · <kbd>↑</kbd><kbd>↓</kbd> speed · <kbd>←</kbd><kbd>→</kbd> skip sentence · <kbd>F3</kbd> next hit
+    </div>
+  </div>
+
+  <div id="playerPanel">
+    <div id="playerHead"><span class="dot idle" id="liveDot"></span><span id="playerTitle">Read Player</span><span style="margin-left:auto" id="panelWord">— words</span></div>
+    <div id="playerScroll"></div>
+  </div>
+</div>
+
+<div id="controls">
+  <div id="progressWrap"><div id="progressBar"></div></div>
+  <div id="ctrlRow">
+    <button class="btn" id="prevBtn" title="Previous sentence (←)">⏮</button>
+    <button class="btn primary" id="playBtn" title="Play / Pause (Space)">▶</button>
+    <button class="btn" id="nextBtn" title="Next sentence (→)">⏭</button>
+    <div class="ctl">🗣 <span>Speed</span><input type="range" id="wpm" min="100" max="1500" step="10"><output id="wpmOut">300</output><span>wpm</span></div>
+    <div class="ctl"><span>Words / flash</span><input type="range" id="chunk" min="1" max="4" step="1" value="1"><output id="chunkOut">1</output></div>
+    <div class="ctl"><span>Size</span><input type="range" id="fsize" min="36" max="120" step="2" value="64"><output id="fsizeOut">64</output></div>
+    <div class="tgl on" id="ttsTgl">🔊 Voice</div>
+    <div class="tgl on" id="rsvpTgl">👁 RSVP</div>
+    <div class="tgl on" id="panelTgl">📜 Text</div>
+    <button class="btn" id="restartBtn" title="Restart">↺</button>
+  </div>
+  <div id="hint">Shortcuts: <kbd>Space</kbd> play/pause · <kbd>←</kbd><kbd>→</kbd> sentence · <kbd>↑</kbd><kbd>↓</kbd> wpm · <kbd>[</kbd><kbd>]</kbd> font · <kbd>F3</kbd>/<kbd>Shift+F3</kbd> cycle search hits · seek by clicking the progress bar · click any sentence in the text panel to jump there · drag & drop a file anywhere</div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ================= State ================= */
+const S = {
+  sentences: [],      // [{text, words:[...], start(global word idx), el, wordEls}]
+  totalWords: 0,
+  sIdx: 0,
+  playing: false,
+  tts: false, rsvp: true, panel: true,   // VOICE OFF by default (operator order 2026-10-16): read speed and narration speed are different beasts
+  wpm: 300, chunkSize: 1,
+  timer: null,
+  curUtter: null,
+  fileName: "",
+  hotSpans: [],       // currently highlighted player spans
+  lastScrollCheck: 0,
+  // search state
+  hits: [],           // [{si, wi}] — sentence index + word index of each hit
+  hitIdx: -1
+};
+const $ = id => document.getElementById(id);
+
+/* ================= Settings persistence ================= */
+/* VOICE DEFAULT (operator order 2026-10-16): tts starts OFF every launch.
+   The saved tts value is IGNORED on load — read speed and narration speed
+   are different beasts. The operator turns voice on per-session if wanted. */
+try {
+  const saved = JSON.parse(localStorage.getItem("readplayer_morphyes") || "{}");
+  if (saved.wpm) S.wpm = saved.wpm;
+  if (saved.chunkSize) S.chunkSize = saved.chunkSize;
+  S.tts = false;  // ALWAYS off at launch — operator order
+  if (saved.rsvp !== undefined) S.rsvp = saved.rsvp;
+  if (saved.panel !== undefined) S.panel = saved.panel;
+  if (saved.fs) document.documentElement.style.setProperty("--fs", saved.fs + "px");
+} catch(e){}
+function saveSettings(){
+  try {
+    localStorage.setItem("readplayer_morphyes", JSON.stringify({
+      wpm:S.wpm, chunkSize:S.chunkSize, tts:S.tts, rsvp:S.rsvp, panel:S.panel,
+      fs: getComputedStyle(document.documentElement).getPropertyValue("--fs").replace("px","").trim()
+    }));
+  } catch(e){}
+}
+
+/* ================= Toast ================= */
+let toastT;
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.style.opacity = 1;
+  clearTimeout(toastT); toastT = setTimeout(()=> t.style.opacity = 0, 3200);
+}
+
+/* ================= File extraction ================= */
+function stripHtml(html){
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.querySelectorAll("script,style,noscript").forEach(n=>n.remove());
+  return (doc.body.textContent || "").replace(/\n{3,}/g,"\n\n");
+}
+function stripRtf(rtf){
+  return rtf
+    .replace(/\\'[0-9a-fA-F]{2}/g, "")
+    .replace(/\\par[d]?/g, "\n")
+    .replace(/\\tab/g, "\t")
+    .replace(/\{\\\*?\\[^{}]+}|[{}]|\\[a-zA-Z]+-?\d* ?/g, "")
+    .replace(/\n{3,}/g,"\n\n").trim();
+}
+function stripSrt(s){
+  return s.replace(/\d{1,2}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{1,2}:\d{2}:\d{2}[,.]\d{3}/g," ")
+          .replace(/<[^>]+>/g,"")
+          .replace(/^\s*\d+\s*$/gm," ")
+          .replace(/\n{3,}/g,"\n\n");
+}
+async function extractPdf(buf){
+  if (typeof pdfjsLib === "undefined") throw new Error("PDF engine failed to load.");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "pdf.worker.min.js";
+  const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+  let out = "";
+  for (let p=1; p<=pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const tc = await page.getTextContent();
+    let lastY = null, line = "";
+    for (const it of tc.items){
+      if (lastY !== null && Math.abs(it.transform[5]-lastY) > 4){ out += line.trim()+"\n"; line=""; }
+      line += it.str + (it.hasEOL ? "\n" : " ");
+      lastY = it.transform[5];
+    }
+    out += line.trim() + "\n\n";
+    if (p % 10 === 0) toast(`Extracting PDF… page ${p}/${pdf.numPages}`);
+  }
+  return out;
+}
+async function extractEpub(buf){
+  if (typeof JSZip === "undefined") throw new Error("EPUB engine failed to load.");
+  const zip = await JSZip.loadAsync(buf);
+  let opfPath = null;
+  const container = zip.file("META-INF/container.xml");
+  if (container){
+    const c = await container.async("text");
+    const m = c.match(/full-path="([^"]+\.opf)"/i);
+    if (m) opfPath = m[1];
+  }
+  if (!opfPath){ const f = zip.file(/\.opf$/i)[0]; if (f) opfPath = f.name; }
+  if (!opfPath) throw new Error("Could not locate EPUB table of contents.");
+  const opfDir = opfPath.includes("/") ? opfPath.slice(0, opfPath.lastIndexOf("/")+1) : "";
+  const opf = await zip.file(opfPath).async("text");
+  const doc = new DOMParser().parseFromString(opf, "application/xml");
+  const manifest = {};
+  doc.querySelectorAll("manifest > item").forEach(it=> manifest[it.getAttribute("id")] = it.getAttribute("href"));
+  const refs = [...doc.querySelectorAll("spine > itemref")].map(r=> r.getAttribute("idref"));
+  let out = "";
+  for (const id of refs){
+    const href = manifest[id]; if (!href) continue;
+    const file = zip.file(opfDir + href) || zip.file(href.replace(/^\.\//,""));
+    if (!file) continue;
+    out += stripHtml(await file.async("text")) + "\n\n";
+  }
+  return out;
+}
+async function extractPptx(buf){
+  if (typeof JSZip === "undefined") throw new Error("PPTX engine failed to load.");
+  const zip = await JSZip.loadAsync(buf);
+  const slides = zip.file(/ppt\/slides\/slide\d+\.xml$/i)
+    .sort((a,b)=> parseInt(a.name.match(/slide(\d+)/)[1]) - parseInt(b.name.match(/slide(\d+)/)[1]));
+  let out = "";
+  for (const s of slides){
+    const xml = await s.async("text");
+    const texts = [...xml.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map(m=>m[1]);
+    if (texts.length) out += texts.join(" ") + "\n\n";
+  }
+  return out;
+}
+async function extractText(file){
+  const ext = file.name.split(".").pop().toLowerCase();
+  const buf = await file.arrayBuffer();
+  const dec = new TextDecoder();
+  switch(ext){
+    case "pdf": return await extractPdf(buf);
+    case "docx":
+      if (typeof mammoth === "undefined") throw new Error("DOCX engine failed to load.");
+      return (await mammoth.extractRawText({arrayBuffer:buf})).value;
+    case "epub": return await extractEpub(buf);
+    case "pptx": return await extractPptx(buf);
+    case "rtf": return stripRtf(dec.decode(buf));
+    case "srt": return stripSrt(dec.decode(buf));
+    case "html": case "htm": case "xml": return stripHtml(dec.decode(buf));
+    case "json":
+      try { return JSON.stringify(JSON.parse(dec.decode(buf)), null, 2); }
+      catch(e){ return dec.decode(buf); }
+    default: return dec.decode(buf);
+  }
+}
+
+/* ================= Text → sentences ================= */
+function buildSentences(text){
+  const clean = text.replace(/\r/g,"").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim();
+  if (!clean) throw new Error("No readable text found in this file.");
+  const parts = clean.match(/[^.!?…\n]+[.!?…]*["'”’)\]]*\s*|\n+/g) || [clean];
+  const sentences = [];
+  let wGlobal = 0;
+  for (const p of parts){
+    const t = p.trim();
+    if (!t) continue;
+    const words = t.split(/\s+/).filter(Boolean);
+    if (!words.length) continue;
+    sentences.push({text:t, words, start:wGlobal});
+    wGlobal += words.length;
+  }
+  return {sentences, totalWords: wGlobal};
+}
+function buildChunks(words){
+  const chunks = [], cs = S.chunkSize;
+  for (let i=0; i<words.length; i+=cs) chunks.push(words.slice(i, i+cs));
+  return chunks;
+}
+function chunkMs(chunk){
+  const base = 60000 / S.wpm;
+  let ms = 0;
+  for (const w of chunk){
+    const core = w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+    let d = base * Math.max(1, core.length / 6);
+    if (/[.!?…]$/.test(w)) d *= 2.6;
+    else if (/[,;:]$/.test(w)) d *= 1.7;
+    ms += d;
+  }
+  return Math.min(ms, base * 6 * Math.max(1,S.chunkSize));
+}
+
+/* ================= Read Player panel (raw text + karaoke highlight) ================= */
+function buildPlayer(){
+  const scroller = $("playerScroll");
+  scroller.innerHTML = "";
+  const frag = document.createDocumentFragment();
+  const MAX_SPANS = 60000; // safety cap for truly enormous docs
+  let rendered = 0, g = 0;
+  for (let si=0; si<S.sentences.length; si++){
+    const s = S.sentences[si];
+    const line = document.createElement("div");
+    line.className = "s-line";
+    const els = [];
+    for (let wi=0; wi<s.words.length; wi++){
+      const span = document.createElement("span");
+      span.className = "w";
+      span.textContent = s.words[wi];
+      span.dataset.si = si; span.dataset.wi = wi; span.dataset.g = g++;
+      line.appendChild(span);
+      if (wi < s.words.length-1) line.appendChild(document.createTextNode(" "));
+      els.push(span);
+      if (++rendered >= MAX_SPANS){
+        const note = document.createElement("div");
+        note.style.cssText = "color:var(--dim);font-size:12px;margin-top:1em";
+        note.textContent = "— (display truncated for very long document; playback unaffected) —";
+        frag.appendChild(note);
+        si = S.sentences.length; break;
+      }
+    }
+    s.el = line; s.wordEls = els;
+    line.addEventListener("click", e=>{
+      const t = e.target.closest(".w"); if (!t) return;
+      jumpToSentence(+t.dataset.si);
+    });
+    frag.appendChild(line);
+  }
+  scroller.appendChild(frag);
+  $("panelWord").textContent = S.totalWords.toLocaleString() + " words";
+}
+function clearHot(){
+  for (const sp of S.hotSpans) sp.classList.remove("w-hot","w-cur");
+  S.hotSpans.length = 0;
+}
+function highlightChunk(s, chunkStartLocal){
+  clearHot();
+  if (!s.wordEls) return;
+  const n = Math.min(S.chunkSize, s.words.length - chunkStartLocal);
+  for (let k=0; k<n; k++){
+    const sp = s.wordEls[chunkStartLocal + k];
+    if (!sp) break;
+    sp.classList.add(k===0 ? "w-cur" : "w-hot");
+    S.hotSpans.push(sp);
+  }
+  // sentence state classes
+  if (S._sentState !== S.sIdx){
+    for (const s2 of S.sentences){
+      if (s2.el && s2._st === "current"){ s2.el.classList.remove("current"); s2.el.classList.add("read"); s2._st = "read"; }
+    }
+    if (s.el){ s.el.classList.add("current"); s.el._st = "current"; }
+    S._sentState = S.sIdx;
+  }
+  // scroll: only when the hot word drifts out of the comfortable zone
+  if (S.hotSpans.length){
+    const sp = S.hotSpans[0];
+    const sc = $("playerScroll");
+    const r = sp.getBoundingClientRect(), sr = sc.getBoundingClientRect();
+    if (r.top < sr.top + sr.height*0.25 || r.top > sr.top + sr.height*0.6){
+      sc.scrollTop += (r.top - sr.top) - sr.height*0.35;
+    }
+  }
+}
+
+/* ================= SEARCH — every instance gold, cycle, play picks up there ================= */
+function clearSearchHits(){
+  for (const h of S.hits){
+    const s = S.sentences[h.si];
+    if (s && s.wordEls && s.wordEls[h.wi]) s.wordEls[h.wi].classList.remove("w-hit","cur-hit");
+  }
+  S.hits = []; S.hitIdx = -1;
+  $("searchCount").textContent = "0 hits";
+}
+function doSearch(q){
+  clearSearchHits();
+  q = (q || "").trim().toLowerCase();
+  if (!q || !S.sentences.length) return;
+  for (let si=0; si<S.sentences.length; si++){
+    const s = S.sentences[si];
+    for (let wi=0; wi<s.words.length; wi++){
+      const w = s.words[wi].toLowerCase();
+      if (w === q || w.startsWith(q) || (q.length >= 3 && w.includes(q))){
+        S.hits.push({si, wi});
+        if (s.wordEls && s.wordEls[wi]) s.wordEls[wi].classList.add("w-hit");
+      }
+    }
+  }
+  $("searchCount").textContent = S.hits.length + (S.hits.length === 1 ? " hit" : " hits");
+  if (S.hits.length) gotoHit(0);
+  else toast("No matches for \"" + q + "\"");
+}
+function gotoHit(i){
+  if (!S.hits.length) return;
+  // wrap around both directions — like a real reader
+  S.hitIdx = (i + S.hits.length) % S.hits.length;
+  const h = S.hits[S.hitIdx];
+  // clear previous cur-hit marker
+  for (const prev of S.hits){
+    const ps = S.sentences[prev.si];
+    if (ps && ps.wordEls && ps.wordEls[prev.wi]) ps.wordEls[prev.wi].classList.remove("cur-hit");
+  }
+  const s = S.sentences[h.si];
+  if (s.wordEls && s.wordEls[h.wi]) s.wordEls[h.wi].classList.add("cur-hit");
+  // PLAY PICKS UP RIGHT AT THE SEARCHED POINT — jump the engine there
+  jumpToSentence(h.si);
+  // scroll the hit into view
+  if (s.el){
+    const sc = $("playerScroll");
+    const r = s.el.getBoundingClientRect(), sr = sc.getBoundingClientRect();
+    sc.scrollTop += (r.top - sr.top) - sr.height*0.35;
+  }
+  $("searchCount").textContent = (S.hitIdx+1) + " / " + S.hits.length + " hits";
+}
+function nextHit(){ if (S.hits.length) gotoHit(S.hitIdx + 1); }
+function prevHit(){ if (S.hits.length) gotoHit(S.hitIdx - 1); }
+
+/* ================= ORP focus display ================= */
+function orpIndex(len){
+  if (len <= 1) return 0;
+  if (len <= 3) return 1;
+  if (len <= 5) return 2;
+  if (len <= 7) return 3;
+  if (len <= 9) return 4;
+  return 5;
+}
+function showChunk(chunk){
+  const words = chunk;
+  const mid = Math.floor(words.length/2);
+  let pre = "", orp = "", post = "";
+  if (words.length === 1){
+    const w = words[0], i = Math.min(orpIndex(w.length), w.length-1);
+    pre = w.slice(0,i); orp = w[i]; post = w.slice(i+1);
+  } else {
+    pre = words.slice(0, mid).join(" ") + " ";
+    const w = words[mid];
+    const i = Math.min(orpIndex(w.length), w.length-1);
+    pre += w.slice(0,i); orp = w[i]; post = w.slice(i+1) + " " + words.slice(mid+1).join(" ");
+  }
+  $("wordBox").innerHTML =
+    `<span class="pre">${esc(pre)}</span><span class="orp">${esc(orp)}</span><span class="post">${esc(post)}</span>`;
+}
+function esc(s){ return s.replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">"); }
+
+/* ================= Speech — PIPER through morPHYtrek (operator order 2026-10-16).
+   The browser robot voice is DEAD. Every sentence is POSTed to the morPHYtrek
+   extension bridge (localhost:8792/api/narrate), which writes a queue file and
+   Piper Alba speaks it. ONE mouth, ONE brand. The Voice toggle now controls
+   whether the narration file goes or not. */
+const MOUTH_URL = "http://127.0.0.1:8792/api/narrate";
+function ttsRate(){ return Math.min(2.2, Math.max(0.6, S.wpm / 190)); }
+function speakSentence(sent){
+  if (!S.tts) return;
+  try {
+    fetch(MOUTH_URL, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({text: sent.text.replace(/\n+/g," "), source: "readplayer", engine: "piper"})
+    }).catch(()=>{});
+  } catch(e){}
+}
+function stopSpeech(){
+  // Ask the mouth to abort the current narration via the widget's abort
+  // path — the refresh button. We cannot press it from here, but the queue
+  // file for THIS sentence is already written; the operator's abort button
+  // stops anything too much. Nothing else to do locally.
+  try { speechSynthesis.cancel(); } catch(e){}
+  S.curUtter = null;
+}
+
+/* ================= Engine ================= */
+function curSentence(){ return S.sentences[S.sIdx]; }
+function globalWordPos(){
+  const s = curSentence(); if (!s) return 0;
+  return s.start + Math.min((s._ci||0) * S.chunkSize, s.words.length - 1);
+}
+function scheduleNext(){
+  clearTimeout(S.timer);
+  const s = curSentence(); if (!s) return finish();
+  if (!s._chunks) s._chunks = buildChunks(s.words);
+  if (s._ci >= s._chunks.length) return nextSentence();
+  const chunk = s._chunks[s._ci];
+  const localStart = s._ci * S.chunkSize;
+  if (S.rsvp) showChunk(chunk);
+  highlightChunk(s, localStart);
+  const ms = S.rsvp ? chunkMs(chunk) : 60000 / S.wpm * chunk.length;
+  s._ci++;
+  updateProgress();
+  S.timer = setTimeout(scheduleNext, ms);
+}
+function playSentence(fresh){
+  const s = curSentence(); if (!s) return finish();
+  if (fresh){
+    s._chunks = buildChunks(s.words);
+    s._ci = 0;
+    if (S.tts) speakSentence(s); else stopSpeech();
+  }
+  scheduleNext();
+}
+function nextSentence(){ jumpTo(S.sIdx + 1); }
+function prevSentence(){ jumpTo(S.sIdx - 1); }
+function jumpTo(i){ jumpToSentence(i, true); }
+function jumpToSentence(i, fromEngine){
+  if (i < 0) return;
+  if (i >= S.sentences.length) return finish();
+  clearTimeout(S.timer);
+  S.sIdx = i;
+  if (S.playing) playSentence(true);
+  else {
+    const s = curSentence();
+    s._chunks = buildChunks(s.words); s._ci = 0;
+    showChunk(s._chunks[0]);
+    highlightChunk(s, 0);
+    updateProgress();
+  }
+}
+function finish(){
+  pause(true);
+  S.sIdx = Math.max(0, S.sentences.length - 1);
+  stopSpeech();
+  $("playBtn").textContent = "▶";
+  $("liveDot").classList.add("idle");
+  toast("🏁 End of document — press ↺ to restart");
+  updateProgress();
+}
+function pause(silent){
+  S.playing = false;
+  clearTimeout(S.timer);
+  try { if (speechSynthesis.speaking) speechSynthesis.pause(); } catch(e){}
+  $("liveDot").classList.add("idle");
+  if (!silent) $("playBtn").textContent = "▶";
+}
+function play(){
+  if (!S.sentences.length){ toast("Open a file first 📂"); return; }
+  const s = curSentence();
+  if (!s._chunks) playSentence(true);
+  else {
+    if (S.tts && S.curUtter) { try{ speechSynthesis.resume(); }catch(e){} }
+    scheduleNext();
+  }
+  S.playing = true;
+  $("playBtn").textContent = "⏸";
+  $("liveDot").classList.remove("idle");
+  $("idleMsg").style.display = "none";
+  $("orpMark").style.display = "block";
+}
+function togglePlay(){ S.playing ? pause() : play(); }
+
+/* ================= Progress ================= */
+function fmtTime(sec){
+  if (!isFinite(sec) || sec < 0) sec = 0;
+  const m = Math.floor(sec/60), s = Math.floor(sec%60);
+  return m + ":" + String(s).padStart(2,"0");
+}
+function updateProgress(){
+  const pos = globalWordPos();
+  const pct = S.totalWords ? (pos / S.totalWords * 100) : 0;
+  $("progressBar").style.width = pct + "%";
+  const left = (S.totalWords - pos) / S.wpm * 60;
+  $("stats").textContent = `${pos}/${S.totalWords} words · ${fmtTime(left)} left`;
+}
+
+/* ================= Load ================= */
+async function loadFile(file){
+  if (!file) return;
+  pause(true); stopSpeech(); clearSearchHits();
+  $("fileName").textContent = "⏳ " + file.name;
+  toast("Extracting text from " + file.name + "…");
+  try {
+    const text = await extractText(file);
+    const {sentences, totalWords} = buildSentences(text);
+    if (!sentences.length) throw new Error("No readable text found.");
+    S.sentences = sentences; S.totalWords = totalWords; S.sIdx = 0;
+    S.fileName = file.name; S._sentState = -1;
+    $("fileName").textContent = file.name;
+    $("playerTitle").textContent = file.name;
+    $("idleMsg").style.display = "none";
+    $("orpMark").style.display = "block";
+    buildPlayer();
+    updateProgress();
+    toast(`✅ Ready — ${totalWords.toLocaleString()} words · ~${fmtTime(totalWords/S.wpm*60)} at ${S.wpm} wpm`);
+    play();
+  } catch(e){
+    console.error(e);
+    $("fileName").textContent = file.name;
+    toast("⚠️ " + (e.message || "Could not read this file."));
+  }
+}
+async function loadPath(p){
+  p = p.trim().replace(/^["']|["']$/g,"");
+  if (!p) return;
+  try {
+    const resp = await fetch("file:///" + p.replace(/\\/g,"/").replace(/^\/+/,""));
+    if (!resp.ok) throw new Error();
+    const blob = await resp.blob();
+    loadFile(new File([blob], p.split(/[\\/]/).pop()));
+  } catch(e){
+    toast("Browsers block direct path access — pick the file in the dialog instead.");
+    $("fileInput").click();
+  }
+}
+
+/* ================= Wire up UI ================= */
+$("browseBtn").onclick = ()=> $("fileInput").click();
+$("fileInput").onchange = e => { loadFile(e.target.files[0]); e.target.value = ""; };
+$("pathInput").onkeydown = e => { if (e.key === "Enter") loadPath(e.target.value); };
+$("playBtn").onclick = togglePlay;
+$("prevBtn").onclick = prevSentence;
+$("nextBtn").onclick = nextSentence;
+$("restartBtn").onclick = ()=> { stopSpeech(); jumpTo(0); };
+
+/* search wiring */
+$("searchInput").onkeydown = e => {
+  if (e.key === "Enter"){ e.preventDefault(); doSearch(e.target.value); }
+};
+$("nextHitBtn").onclick = nextHit;
+$("prevHitBtn").onclick = prevHit;
+$("clearHitBtn").onclick = ()=> { $("searchInput").value = ""; clearSearchHits(); };
+
+const wpmEl = $("wpm"), chunkEl = $("chunk"), fsEl = $("fsize");
+wpmEl.value = S.wpm; $("wpmOut").textContent = S.wpm;
+chunkEl.value = S.chunkSize; $("chunkOut").textContent = S.chunkSize;
+fsEl.value = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--fs")) || 64;
+$("fsizeOut").textContent = fsEl.value;
+
+wpmEl.oninput = ()=>{ S.wpm = +wpmEl.value; $("wpmOut").textContent = S.wpm; saveSettings(); updateProgress(); };
+chunkEl.oninput = ()=>{
+  S.chunkSize = +chunkEl.value; $("chunkOut").textContent = S.chunkSize; saveSettings();
+  const s = curSentence(); if (s){ delete s._chunks; if (S.playing) playSentence(true); else jumpToSentence(S.sIdx); }
+};
+fsEl.oninput = ()=>{
+  document.documentElement.style.setProperty("--fs", fsEl.value + "px");
+  $("fsizeOut").textContent = fsEl.value; saveSettings();
+};
+$("ttsTgl").onclick = ()=>{
+  S.tts = !S.tts; $("ttsTgl").classList.toggle("on", S.tts); saveSettings();
+  if (!S.tts) stopSpeech(); else if (S.playing) speakSentence(curSentence());
+};
+$("rsvpTgl").onclick = ()=>{
+  S.rsvp = !S.rsvp; $("rsvpTgl").classList.toggle("on", S.rsvp); saveSettings();
+};
+$("panelTgl").onclick = ()=>{
+  S.panel = !S.panel; $("panelTgl").classList.toggle("on", S.panel); saveSettings();
+  $("playerPanel").classList.toggle("hidden", !S.panel);
+};
+$("ttsTgl").classList.toggle("on", S.tts);
+$("rsvpTgl").classList.toggle("on", S.rsvp);
+$("panelTgl").classList.toggle("on", S.panel);
+$("playerPanel").classList.toggle("hidden", !S.panel);
+
+/* progress seek */
+$("progressWrap").onclick = e=>{
+  if (!S.totalWords) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  const frac = (e.clientX - r.left) / r.width;
+  const target = Math.floor(frac * S.totalWords);
+  let lo = 0, hi = S.sentences.length - 1;
+  while (lo < hi){ const mid = (lo + hi + 1) >> 1; if (S.sentences[mid].start <= target) lo = mid; else hi = mid - 1; }
+  jumpToSentence(lo);
+};
+
+/* drag & drop */
+const veil = $("dropVeil");
+let dragDepth = 0;
+window.addEventListener("dragenter", e=>{ e.preventDefault(); if (++dragDepth === 1) veil.style.display = "flex"; });
+window.addEventListener("dragover", e=> e.preventDefault());
+window.addEventListener("dragleave", e=>{ e.preventDefault(); if (--dragDepth <= 0){ dragDepth = 0; veil.style.display = "none"; } });
+window.addEventListener("drop", e=>{
+  e.preventDefault(); dragDepth = 0; veil.style.display = "none";
+  const f = e.dataTransfer.files[0];
+  if (f) loadFile(f);
+});
+
+/* keyboard */
+window.addEventListener("keydown", e=>{
+  if (e.target.tagName === "INPUT" && e.target.type !== "range"){
+    // let Enter/F3 inside the search box fall through to its own handler
+    if (e.key === "F3"){ e.preventDefault(); e.shiftKey ? prevHit() : nextHit(); }
+    return;
+  }
+  switch(e.key){
+    case " ": e.preventDefault(); togglePlay(); break;
+    case "ArrowLeft": prevSentence(); break;
+    case "ArrowRight": nextSentence(); break;
+    case "ArrowUp": e.preventDefault(); wpmEl.value = Math.min(1500, S.wpm + 20); wpmEl.oninput(); break;
+    case "ArrowDown": e.preventDefault(); wpmEl.value = Math.max(100, S.wpm - 20); wpmEl.oninput(); break;
+    case "[": fsEl.value = Math.max(36, +fsEl.value - 4); fsEl.oninput(); break;
+    case "]": fsEl.value = Math.min(120, +fsEl.value + 4); fsEl.oninput(); break;
+    case "F3": e.preventDefault(); e.shiftKey ? prevHit() : nextHit(); break;
+  }
+});
+
+/* warm up — browser TTS is DEAD, nothing to warm */
+</script>
+</body>
+</html>

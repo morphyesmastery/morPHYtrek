@@ -1,15 +1,16 @@
 # morPHYtrek — The Voice Firewall
 
-**Speak. It types. It talks back. Offline. Yours.**
+**Speak → it types. Drop text → it talks back. All offline. One folder. No install.**
 
-morPHYtrek is a complete, portable, offline-first voice interface for Windows:
-
-- 🎙️ **Dictation** — speak, and the words paste at your cursor. Like dictation.
-- 🗣️ **Narration** — text files dropped in a folder are read aloud through Piper TTS, with a live RSVP (Rapid Serial Visual Presentation) word trace synced to the actual audio clock.
+- 🎙️ **Dictation** — Whisper STT that pastes at your cursor (GPU if you got it, CPU if you don't)
+- 🗣️ **Narration** — Piper TTS with live RSVP word-trace synced to the actual audio clock
 - 👁️ **RSVP subtitle cell** — one word at a time, ORP focus letter in rust, exactly matching the voice speed. Every word shows, including the last.
-- 🚀 **Fully portable** — a single folder. Its own Python runtime, its own Piper voice, its own queue. Works from ANY folder on ANY Windows PC. Nothing installed. Nothing hardcoded.
-- 🔌 **Chrome extension bridge** — right-click → Read Aloud → narrated through the same mouth.
-- 🧠 **Whisper transcription** — automatic GPU detection. If you have an NVIDIA GPU and say yes, it downloads torch once and transcribes at full speed. Otherwise it runs clean on CPU.
+- 📖 **Read Player** — the book icon opens a full document reader: drop any PDF, DOCX, EPUB, or TXT and speed-read it at up to 1500 wpm with gold search hits, or let it read aloud. Voice off by default — read speed and narration speed are different beasts.
+- 📁 **Fully portable** — bundled Python 3.12 + 106 deps. Runs from a USB stick. No admin. No registry.
+- 🔒 **Zero cloud** — your voice never leaves your machine
+- 🧩 **Chrome extension** — right-click any text → narrated through the same mouth
+
+**Built for accessibility first. Open source (MIT). Paid build ships the full portable bundle.**
 
 ## Quick start
 
@@ -17,6 +18,21 @@ morPHYtrek is a complete, portable, offline-first voice interface for Windows:
 2. Run `morPHYtrek.bat`.
 3. Speak into the mic — words land at your cursor.
 4. Drop any `.txt` or `.json` file into `morphytrek_data\queue\` — it gets narrated, word by word, on the RSVP cell.
+5. Click the book icon — the Read Player drawer opens. Drop any document in and read.
+
+## Why this exists
+
+Most voice tools require:
+- an account
+- an internet connection
+- admin rights to install
+- a subscription
+
+morPHYtrek requires none of those. It is one folder. Copy it anywhere. Double-click. Done.
+
+Your voice never leaves your machine. It works on locked-down corporate PCs, school computers, library machines — anything that runs Windows. No admin rights. No registry writes. No cloud dependency.
+
+For someone who needs a voice and cannot install software, this is the difference between having one and not having one.
 
 ## The queue
 
@@ -26,20 +42,22 @@ One queue. Its own. `morphytrek_data\queue\` next to the app. Drop a text file o
 {"text": "Hello world.", "source": "me", "engine": "piper"}
 ```
 
-morPHYtrek picks it up, speaks it through Piper Alba, and shows every word in the RSVP cell in sync with the voice.
+morPHYtrek picks it up, speaks it through Piper, and shows every word in the RSVP cell in sync with the voice.
 
 ## Keyboard
 
 - **Spacebar** — mute/unmute the microphone.
+- **Arrow keys (in the Read Player)** — speed up/down, prev/next sentence.
 
 ## What's inside
 
 | Path | What it is |
 |---|---|
 | `morPHYtrek.bat` | Single launcher. Self-healing. Refreshes only its own bundle. |
-| `morPHYtrek.py` | The engine: ear (Whisper) → mouth (Piper) → queue → RSVP → paste. |
+| `morPHYtrek.py` | The engine: ear (Whisper) → mouth (Piper) → queue → RSVP → paste → Read Player. |
+| `reader\` | Read Player v3 — PDF, DOCX, EPUB, TXT reader with RSVP speed reading and gold search. |
 | `runtime\` | Bundled Python 3.12 + all dependencies (106 packages). |
-| `piper\` | Piper TTS voices (Alba default). |
+| `piper\` | Piper TTS voices. |
 | `morphytrek_extension\` | Chrome extension source for right-click Read Aloud. |
 | `morphytrek_data\` | Created on first run: queue, config, logs, transcripts. |
 
@@ -54,8 +72,8 @@ Free for anyone who needs it and cannot pay — email me, no questions asked.
 
 ## License
 
-MIT — do whatever you want with it, keep the copyright, and please: give it to someone who needs a voice.
+MIT — do whatever you want with it, keep the copyright, and please: **give it to someone who needs a voice.**
 
 ---
 
-Built by Trent Brown — MorPHYes Mastery. **WE WORK HERE.**
+Built by MorPHYes Mastery. **WE WORK HERE.**
