@@ -63,9 +63,9 @@ morPHYtrek picks it up, speaks it through Piper, and shows every word in the RSV
 
 ## Get It
 
-**$10 USD — one-time, yours forever.**
+**$25 USD — one-time, yours forever.**
 
-- 💳 **[Buy on Card — $10](https://buy.stripe.com/eVq3cnfLE24maMs4bw5wI02)** (Stripe checkout)
+- 💳 **[Buy on Card — $25](https://buy.stripe.com/cNi3cndDwdN49Io4bw5wI0f)** (Stripe checkout)
 - 📧 e-Transfer (Canada): morphyesmastery@gmail.com
 
 Free for anyone who needs it and cannot pay — email me, no questions asked.
