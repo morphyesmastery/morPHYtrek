@@ -6,7 +6,8 @@
 - 🗣️ **Narration** — Piper TTS with live RSVP word-trace synced to the actual audio clock
 - 👁️ **RSVP subtitle cell** — one word at a time, ORP focus letter in rust, exactly matching the voice speed. Every word shows, including the last.
 - 📖 **Read Player** — the book icon opens a full document reader: drop any PDF, DOCX, EPUB, or TXT and speed-read it at up to 1500 wpm with gold search hits, or let it read aloud. Voice off by default — read speed and narration speed are different beasts.
-- 📁 **Fully portable** — bundled Python 3.12 + 106 deps. Runs from a USB stick. No admin. No registry.
+- 📁 **Fully portable** — bundled Python 3.12 + deps. Runs from a USB stick. No admin. No registry.
+- ✈️ **Truly offline** — the speech model and four voices ship inside the folder. No download on first run.
 - 🔒 **Zero cloud** — your voice never leaves your machine
 - 🧩 **Chrome extension** — right-click any text → narrated through the same mouth
 
@@ -14,8 +15,10 @@
 
 ## Quick start
 
-1. Copy the `morPHYtrek_RELEASE` folder anywhere (USB stick, desktop, anywhere).
-2. Run `morPHYtrek.bat`.
+**Download the portable build:** [morPHYtrek_portable_v1.0.zip](https://github.com/morphyesmastery/morPHYtrek/releases/download/v1.0.0/morPHYtrek_portable_v1.0.zip) — 2.3 GB, everything inside.
+
+1. Extract the zip anywhere (USB stick, desktop, anywhere). Do not run it from inside the zip.
+2. Open the `morPHYtrek` folder and run `morPHYtrek.bat`.
 3. Speak into the mic — words land at your cursor.
 4. Drop any `.txt` or `.json` file into `morphytrek_data\queue\` — it gets narrated, word by word, on the RSVP cell.
 5. Click the book icon — the Read Player drawer opens. Drop any document in and read.
@@ -57,7 +60,9 @@ morPHYtrek picks it up, speaks it through Piper, and shows every word in the RSV
 | `morPHYtrek.py` | The engine: ear (Whisper) → mouth (Piper) → queue → RSVP → paste → Read Player. |
 | `reader\` | Read Player v3 — PDF, DOCX, EPUB, TXT reader with RSVP speed reading and gold search. |
 | `runtime\` | Bundled Python 3.12 + all dependencies (106 packages). |
-| `piper\` | Piper TTS voices. |
+| `piper\` | Piper TTS engine (standalone, no Python) + `en_US-ryan-high`. |
+| `morphytrek_data\voices\` | Alba, Northern English Male, Jenny, Ryan. |
+| `models\faster-whisper-large-v3-turbo\` | The ear, inside the folder. Loads offline, no Hugging Face download. |
 | `morphytrek_extension\` | Chrome extension source for right-click Read Aloud. |
 | `morphytrek_data\` | Created on first run: queue, config, logs, transcripts. |
 
